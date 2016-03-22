@@ -13,7 +13,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 object BNPParibasRegression extends App {
   val sparkConf = new SparkConf()
   sparkConf.setAppName("RandomForestRegressorKin8Data")
-  sparkConf.setMaster("local")
+  sparkConf.setMaster("local[4]")
 
   val sc = new SparkContext(sparkConf)
 
@@ -25,18 +25,18 @@ object BNPParibasRegression extends App {
       val arr = (line + " ").split(",").zipWithIndex.map(tuple => {
         val(token, index) = tuple
         if(token.size == 0 || token.equals(" "))
-          -1.0d
+          0.0d
         else if(token.matches("[a-zA-Z]*")) {
           literalMap.get(index) match {
             case Some(x) => {
               if (!x.contains(token)) {
-                val smallMap: (String, Double) = (token -> literalMap.get(index).get.size.toDouble)
+                val smallMap: (String, Double) = (token -> (literalMap.get(index).get.size.toDouble + 1))
                 val newInnerMap: Map[String, Double] = (Array(smallMap) ++ literalMap.get(index).get.toArray[(String, Double)]).toMap[String, Double]
                 literalMap = literalMap ++ Map(index -> newInnerMap)
               }
             }
             case None => {
-              val smallMap: Map[String, Double] = Map((token -> literalMap.get(index).size.toDouble))
+              val smallMap: Map[String, Double] = Map((token -> (literalMap.get(index).size.toDouble + 1)))
               literalMap = Map(index -> smallMap) ++ literalMap
             }
           }
@@ -64,18 +64,18 @@ object BNPParibasRegression extends App {
       val arr = (line + " ").split(",").zipWithIndex.map(tuple => {
         val(token, index) = tuple
         if(token.size == 0 || token.equals(" "))
-          -1.0d
+          0.0d
         else if(token.matches("[a-zA-Z]*")) {
           literalMap.get(index) match {
             case Some(x) => {
               if (!x.contains(token)) {
-                val smallMap: (String, Double) = (token -> literalMap.get(index).get.size.toDouble)
+                val smallMap: (String, Double) = (token -> (literalMap.get(index).get.size.toDouble + 1))
                 val newInnerMap: Map[String, Double] = (Array(smallMap) ++ literalMap.get(index).get.toArray[(String, Double)]).toMap[String, Double]
                 literalMap = literalMap ++ Map(index -> newInnerMap)
               }
             }
             case None => {
-              val smallMap: Map[String, Double] = Map((token -> literalMap.get(index).size.toDouble))
+              val smallMap: Map[String, Double] = Map((token -> (literalMap.get(index).size.toDouble + 1)))
               literalMap = Map(index -> smallMap) ++ literalMap
             }
           }
@@ -87,22 +87,22 @@ object BNPParibasRegression extends App {
         }
       })
     }
-    literalMap.map(t => (t._1 - 2, t._2.size)).filter(t => t._2 < 128 && t._1 > 1)
+    literalMap.map(t => (t._1 - 2, t._2.size + 1)).filter(t => t._2 < 32 && t._1 >= 0)
   }
 
-  val trainText = scala.io.Source.fromFile("resources/train_bnpparibas.csv").mkString
-  val testText = scala.io.Source.fromFile("resources/test_bnpparibas.csv").mkString
+  val trainText = scala.io.Source.fromFile("C:\\Users\\BDN\\IdeaProjects\\SparkML\\scala\\SparkMLExamples\\resources\\train_bnpparibas.csv\\train.csv").mkString
+  val testText = scala.io.Source.fromFile("C:\\Users\\BDN\\IdeaProjects\\SparkML\\scala\\SparkMLExamples\\resources\\test_bnpparibas.csv\\test.csv").mkString
 
   val trainData: RDD[LabeledPoint] = prepareData(trainText, 0)
   println("Finished reading data")
 
   println("\n\n\n\nLol Lol Lol\n\nn\n")
   val categoricalFeaturesInfo = getCategories(trainText)
-  val numTrees = 30 // Use more in practice.
+  val numTrees = 100 // Use more in practice.
   val featureSubsetStrategy = "auto" // Let the algorithm choose.
   val impurity = "variance"
-  val maxDepth = 9
-  val maxBins = 128
+  val maxDepth = 15
+  val maxBins = 32
 
   categoricalFeaturesInfo.foreach(println)
   val model = RandomForest.trainRegressor(trainData, categoricalFeaturesInfo,
