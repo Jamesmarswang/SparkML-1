@@ -15,11 +15,11 @@ import scala.util.Random
 object BNPParibasRegression extends App {
   val sparkConf = new SparkConf()
   sparkConf.setAppName("RandomForestRegressorKin8Data")
-  sparkConf.setMaster("local")
+  sparkConf.setMaster("local[4]")
 
   val sc = new SparkContext(sparkConf)
   val constantCategorical = -1111.11111d
-  val constantNotFound = -99999999.9d
+  val constantNotFound = 0//-99999999.9d
 
   val categoricalFeatures = List()
   val featuresToDrop = List(11, 19, 26, 43, 92, 113) // features that should be dropped for performance concerns
@@ -177,8 +177,12 @@ object BNPParibasRegression extends App {
 
         arr
     }
-
-    val trainingDataCol = (0 to (trainingDataInitial(0).length - 1)).map { i =>
+    println()
+    println()
+    println(trainingDataInitial.size + " X " + trainingDataInitial(0).size)
+    println()
+    println()
+    val trainingDataCol = ((2 - typeOp) to (trainingDataInitial(0).length - 1)).map { i =>
       trainingDataInitial.map(_(i))
     }
 
@@ -227,7 +231,7 @@ object BNPParibasRegression extends App {
           constantNotFound
         else
           (value - colMin(t._2)) / (colMax(t._2) - colMin(t._2))
-      }
+      }.drop(1 + typeOp)
       val validCols = result.filter(_!=constantNotFound)
       val colMean = validCols.sum / validCols.size
 
@@ -236,11 +240,17 @@ object BNPParibasRegression extends App {
       else
         result.map(x => if(x == constantNotFound) colMean else x)
     }
-
-
     val intermed = (0 to (trainingDataColNew(0).length - 1)).map { i =>
       trainingDataColNew.map(_(i))
     }
+    println()
+    println()
+    println(intermed.size + " X " + intermed(0).size)
+    println()
+    println()
+
+
+
 
     if(typeOp == 0) {
       val negatives = intermed.zip(trainingDataInitial).map { t =>
@@ -263,8 +273,8 @@ object BNPParibasRegression extends App {
       }
     }
     else {
-      sc.parallelize(intermed).map { data =>
-        new LabeledPoint(1, Vectors.dense(data.toArray))
+      sc.parallelize(intermed.zip(trainingDataInitial)).map { t =>
+        new LabeledPoint(t._2(0), Vectors.dense(t._1.toArray))
       }
     }
       /*
@@ -307,34 +317,35 @@ object BNPParibasRegression extends App {
         }
       })
     }
-    literalMap.map(t => (t._1 - 2, t._2.size + 1)).filter(t => t._2 < 16 && t._1 >= 0)
+    literalMap.map(t => (t._1 - 2, t._2.size + 1)).filter(t => t._2 < 8 && t._1 >= 0)
   }
 
-  val trainText = scala.io.Source.fromFile("C:\\Users\\Bogdan\\IdeaProjects\\SparkML\\scala\\SparkMLExamples\\resources\\train_bnpparibas.csv").mkString
-  //val trainText = scala.io.Source.fromFile("C:\\Users\\BDN\\IdeaProjects\\SparkML\\scala\\SparkMLExamples\\resources\\train_bnpparibas.csv\\train.csv").mkString
-  //val testText = scala.io.Source.fromFile("C:\\Users\\BDN\\IdeaProjects\\SparkML\\scala\\SparkMLExamples\\resources\\test_bnpparibas.csv\\test.csv").mkString
+  //val trainText = scala.io.Source.fromFile("C:\\Users\\Bogdan\\IdeaProjects\\SparkML\\scala\\SparkMLExamples\\resources\\train_bnpparibas.csv").mkString
+  val trainText = scala.io.Source.fromFile("C:\\Users\\BDN\\IdeaProjects\\SparkML\\scala\\SparkMLExamples\\resources\\train_bnpparibas.csv\\train.csv").mkString
+  val testText = scala.io.Source.fromFile("C:\\Users\\BDN\\IdeaProjects\\SparkML\\scala\\SparkMLExamples\\resources\\test_bnpparibas.csv\\test.csv").mkString
 
   val data: RDD[LabeledPoint] = prepareData2(trainText, 0)
   //findIdenticalColumns(trainText)
   println("Finished reading data")
 
-  val splits = data.randomSplit(Array(0.7, 0.3))
-  val (trainingData, validationData) = (splits(0), splits(1))
+  //val splits = data.randomSplit(Array(0.7, 0.3))
+  //val (trainingData, validationData) = (splits(0), splits(1))
 
-  val categoricalFeaturesInfo = getCategories(trainText)
-  val numTrees = 20 // Use more in practice.
+  val categoricalFeaturesInfo = Map[Int, Int]()//getCategories(trainText)
+  val numTrees = 100 // Use more in practice.
   val featureSubsetStrategy = "auto" // Let the algorithm choose.
   val impurity = "variance"
-  val maxDepth = 9
-  val maxBins = 16
+  val maxDepth = 10
+  val maxBins = 8
 
   categoricalFeaturesInfo.foreach(println)
-  val model = RandomForest.trainRegressor(trainingData, categoricalFeaturesInfo,
+
+  val model = RandomForest.trainRegressor(data, categoricalFeaturesInfo,
     numTrees, featureSubsetStrategy, impurity, maxDepth, maxBins)
 
-  //val testData: RDD[LabeledPoint] = prepareData(testText, 1)
-  //val gt = testData.map(labeledPoint => labeledPoint.label)
-
+  val testData: RDD[LabeledPoint] = prepareData2(testText, 1)
+  val gt = testData.map(labeledPoint => labeledPoint.label)
+/*
   val result = model.predict(validationData.map(l => l.features))
   val gt = validationData.map(labeledPoint => labeledPoint.label)
   val res = gt.zip(result).collect
@@ -350,8 +361,8 @@ object BNPParibasRegression extends App {
 
   val resultingLogLoss = - logloss/res.length
   println(resultingLogLoss)
+*/
 
-/*
   val result = model.predict(testData.map(l => l.features))
 
   val res = gt.zip(result).collect
@@ -376,6 +387,6 @@ object BNPParibasRegression extends App {
 
   // Explained variance
   println(s"Explained variance = ${metrics.explainedVariance}")
-*/
+
   Thread.sleep(100000)
 }
